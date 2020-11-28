@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# Setup instructions:
+#
+# 1. Obtain XSB Prolog from: http://xsb.sourceforge.net
+# 2. Replace "XSB_DIR xsb" below with the path to your local "xsb" executable
+
+while test $# -gt 0 ; do
+  case "$1" in
+
+      --error*)       # report error messages
+         MESSAGE=1 ; shift 1 ;;
+
+      *)              # help
+         echo "OPTIONS"
+         cat $0 | grep " \# " 1>&2
+         exit
+
+  esac
+done
+
+######################
+# script starts here #
+######################
+
+FILE=${TMP:-"/tmp"}/output$$
+
+cat > "${FILE}.P"
+
+if test "${MESSAGE}"; then
+  XSB_DIR xsb --noprompt --quietload --nobanner --nofeedback -e "['${FILE}.P'], main, halt."
+else
+  XSB_DIR xsb --noprompt --quietload --nobanner --nofeedback -e "['${FILE}.P'], main, halt." 2> /dev/null
+fi
+
+rm "${FILE}.P" "${FILE}.xwam"
+

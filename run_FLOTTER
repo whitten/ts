@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Obtain FLOTTER as part of SPASS from:
+#   https://www.mpi-inf.mpg.de/departments/automation-of-logic/software/spass-workbench/classic-spass-theorem-prover/download
+
+TEMP=${TMP:-"/tmp"}/output_f$$
+
+cat > "${TEMP}"
+
+FLOTTER -TPTP "${TEMP}"
+
+rm -f "${TEMP}"
+

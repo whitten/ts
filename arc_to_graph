@@ -1,0 +1,46 @@
+#!/bin/bash
+
+DIR=$(dirname $0)
+
+sed 's/)\.//; s/^arc(//; s/(/ /; s/,/ /g;' | \
+gawk '
+function clean(s) {
+  s = gensub(/^xxx[0-9]+$/, "", 1, s)
+  s = gensub(/^c.*Sort/, "", 1, s)
+  s = gensub(/^num_/, "", 1, s)
+  s = gensub(/^equals__/, "", 1, s)
+  s = gensub(/dOllar/, "$", "g", s)
+  s = gensub(/lT/, "<", "g", s)
+  s = gensub(/gT/, ">", "g", s)
+  s = gensub(/Dash/, "-", "g", s)
+  s = gensub(/Plus/, "+", "g", s)
+  s = gensub(/Dot/, ".", "g", s)
+  s = gensub(/Comma/, ",", "g", s)
+  s = gensub(/Colon/, ":", "g", s)
+  s = gensub(/Semicolon/, ";", "g", s)
+  return(s)
+}
+
+NF == 2 {
+  # printf("%s  \"%s\" -> \"%s\"\n", $2, $2, $1)
+  next
+}
+
+NF == 3 {
+  printf("%s  \"%s\" [label=\"%s\"];\n", $3, $1, clean($1))
+  printf("%s  \"%s\" [label=\"%s\"];\n", $3, $2, clean($2))
+  printf("%s  \"%s\" -> \"%s\" [label=\"%s\"]\n", $3, $1, $2, clean($3))
+  next
+}
+' | sort | uniq | awk '
+BEGIN {
+  printf("digraph { graph [fontname=\"fixed\"]; node [fontname=\"fixed\"]; edge [fontname=\"fixed\"];\n")
+}
+
+{ print gensub(/^[^ ]* /, " ", 1, $0) }
+
+END {
+  printf("}\n")
+}
+'
+

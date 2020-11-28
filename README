@@ -1,0 +1,39 @@
+Treebank Semantics --- Meaning Representations from Treebanks
+=============================================================
+
+The Treebank Semantics homepage is: http://www.compling.jp/ajb129/ts.html
+
+The homepage describes the approach and implementation in detail.
+
+The system processes constituency tree annotations and returns logic
+based meaning representations.
+
+Examples
+========
+
+The following are command line interactions that illustrate the system:
+
+$ echo "( (IP-MAT (NP-SBJ (NPR John)) (VBD smiled) (PU .)) (ID ex))" | ./show_ts
+fof(ex,axiom,
+  ? [EVENTX1]: ( isA(EVENTX1,smiled)
+  & arg0(EVENTX1) = cENTITYSortjohn)
+).
+
+$ echo "( (IP-MAT (NP-SBJ (NPR John)) (VBD smiled) (PU .)) (ID ex))" | ./show_ts -f
+smiled[arg0->john:ENTITY].
+
+$ ./show_ts -h
+      --f*|-f*)       # flora2 analysis
+      --g*|-g*)       # graph analysis
+      *)              # show this help message
+
+Licence
+=======
+
+All Treebank Semantics sources (c) 2020 Alastair Butler
+
+This work is licensed under the Creative Commons Attribution
+4.0 International License. To view a copy of this license, visit
+http://creativecommons.org/licenses/by/4.0/ or send a letter to
+Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
+

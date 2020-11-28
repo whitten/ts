@@ -1,0 +1,154 @@
+#!/bin/bash
+
+cat << EOF
+:- table equal/2.
+:- table arg_values/3.
+:- table pred_args/3.
+
+EOF
+
+sed '
+s/\<cCONJSort//g
+' | \
+awk '
+function clean(s) {
+  s = gensub(/,[0-9]+\)\.$/, ".", 1, s)
+  s = gensub(/^  clause\( \|\|  -> /, "", 1, s)
+  s = gensub(/\) equal/, ").\nequal", "g", s)
+  return (s)
+}
+
+BEGIN { RS = ""; FS = "\n"; ORS = "\n" }
+
+$1 ~ /^list_of_clauses\(axioms, cnf\)/ {
+  for (i = 2; i <= NF; i++) {
+    if ($i !~ /^end_of_list/) {
+      print clean($i)
+    }
+  }
+}
+
+' | sort -r | grep -v "^equal.*,skc[0-9]\+)\.$"
+
+cat << EOF
+equal(X,X).
+equal(X,Y):- equal(Y,X).
+equal(X,Y):- equal(X,Z), equal(Z,Y).
+
+% find argument role predicate relations
+relation(X,R,Y) :-
+  equal(S,X),
+  atom(X),
+  S =.. [R, E],
+  isA(E,Y),
+  atom(Y),
+  X \== Y.
+relation(X,R,Y) :-
+  isA(S1,X),
+  equal(S1,S),
+  isA(E,Y),
+  S =.. [R, E],
+  atom(Y),
+  atom(X),
+  X \== Y.
+relation(X,R,Y) :-
+  isA(E1,X),
+  isA(E1,S1),
+  equal(S1,S),
+  isA(E,Y),
+  S =.. [R, E],
+  atom(Y),
+  atom(X),
+  X \== Y.
+
+% from list of predicates to list of predicates with their argument roles
+pred_roles([], []).
+pred_roles([P|T0], [pred_roles(P,A)|T]):-
+  roles(P,A),
+  pred_roles(T0, T).
+
+%% % from predicate and list of roles to a list of roles with arguments (all links version)
+%% pred_args(_, [], []).
+%% pred_args(P, [R0|T0], [R|T]):-
+%%   arg_values(P, R0, Vs),
+%%   R =.. [R0,Vs],
+%%   pred_args(P, T0, T).
+
+pred_args(_, [], []).
+pred_args(P, [R0|T0], [R|T]):-
+  arg_values(P, R0, Vs),
+  first_contentful_arg(Vs, V),
+  R =.. [R0,[V]],
+  pred_args(P, T0, T).
+
+first_contentful_arg([], _) :- fail.
+first_contentful_arg([H|T], R) :-
+  atom(H),
+  pcre:match('SortIdm', H, X, one),
+  \+ X == [],
+  !,
+  first_contentful_arg(T, R).
+first_contentful_arg([H|_], H).
+
+% from list of predicates with their argument roles to a list of predicates
+% with a list of roles with arguments
+prop([], []).
+prop([pred_roles(P,A0)|T0], [Prop|T]):-
+  pred_args(P,A0,A),
+  (
+    A == [] ->
+    Prop = P
+  ;
+    Prop =.. [P,A]
+  ),
+  prop(T0, T).
+
+% find all predicates
+pred(Ps) :-
+  findall(X, relation(_, _, X), Ps1), sort(Ps1, Ps).
+
+% find all roles of a predicate
+roles(P, Rs) :-
+  findall(X, relation(_, X, P), Rs1), sort(Rs1, Rs).
+
+% find argument value(s) for predicate given a role
+arg_values(P, R, L):-
+  findall(X, relation(X, R, P), Vs1), sort(Vs1, Vs),
+  pred_roles(Vs, S), prop(S, L).
+
+make_arcs([], Arcs-Arcs, Labels-Labels, Nodes-Nodes).
+make_arcs([H|T], Arcs0-Arcs, Labels0-Labels, Nodes0-[Main|Nodes]) :-
+  H =.. [Main, Rs],
+  make_arcs(Main, Rs, Arcs0-Arcs1, Labels0-Labels1, Nodes0-Nodes1),
+  make_arcs(T, Arcs1-Arcs, Labels1-Labels, Nodes1-Nodes).
+make_arcs(_, [], Arcs-Arcs, Labels-Labels, Nodes-Nodes).
+make_arcs(Main, [H|T], Arcs0-Arcs, Labels0-[R|Labels], Nodes0-Nodes) :-
+  H =.. [R, Es],
+  make_arcs(Main, R, Es, Arcs0-Arcs1, Labels0-Labels1, Nodes0-Nodes1),
+  make_arcs(Main, T, Arcs1-Arcs, Labels1-Labels, Nodes1-Nodes).
+make_arcs(_, _, [], Arcs-Arcs, Labels-Labels, Nodes-Nodes).
+make_arcs(Main, R, [H|T], Arcs0-Arcs, Labels0-Labels, Nodes0-Nodes) :-
+  H =.. [E],
+  sub_atom(E, _, _, _, 'Idm'),
+  !,
+  make_arcs(Main, R, T, Arcs0-Arcs, Labels0-Labels, Nodes0-Nodes).
+make_arcs(Main, R, [H|T], Arcs0-[arc(Main, E, R)|Arcs], Labels0-Labels, Nodes0-[E|Nodes]) :-
+  H =.. [E|_],
+  make_arcs(Main, R, T, Arcs0-Arcs, Labels0-Labels, Nodes0-Nodes).
+
+print_elements([]).
+print_elements([H|T]) :-
+  write(H),
+  write('.'),
+  nl,
+  print_elements(T).
+
+main :-
+  pred(P),
+  pred_roles(P,S),
+  prop(S,T),
+  make_arcs(T,[]-Arcs,[]-_Labels0,[]-_Nodes0),
+  print_elements(Arcs).
+
+EOF
+

@@ -1,0 +1,83 @@
+#!/bin/bash
+
+DIR="$(dirname $0)"
+
+function flr_digest () {
+
+ARCS=${TMP:-"/tmp"}/outputa$$
+DIGEST=${TMP:-"/tmp"}/outpute$$
+
+cat > "${ARCS}"
+
+cat "${ARCS}" | \
+awk '
+function clip(s) {
+  s = gensub(/\.$/, "", 1, s)
+  return(s)
+}
+$1 ~ /:/ {
+  split(clip($1), parts, ":")
+  store[parts[2]] = store[parts[2]] ? store[parts[2]] ", " parts[1] : parts[1]
+}
+END {
+  for (i in store) { 
+    printf("s/\\<%s\\>/{%s}/g\n", i, store[i])
+  }
+}
+' > "${DIGEST}"
+
+cat "${ARCS}" | \
+awk '$1 ~ /:/ { next } ; NF > 0 { print }' | \
+sed -f "${DIGEST}" | \
+sed '
+s/\<c\([[:alnum:]_]\+\)Sort\([[:alnum:]_]\+\)\>/\2:\1/g
+s/clausetype->\([[:alnum:]]*\):CLAUSETYPE/clausetype(\1)/g
+# s/attribute[[0-9]]*->//g
+'
+
+rm "${ARCS}" "${DIGEST}"
+
+}
+
+function post_process () {
+if test $(cat "${TEMP}" | grep -v "]." | wc -l) -gt 0; then
+  cat "${TEMP}" | grep -v "]."
+  echo
+fi
+cat "${TEMP}" | grep "]." | sed 's/\[/ [/' | \
+awk '
+CURRENT == $1 {
+  content = gensub(/\]\.$/, "", 1, gensub(/^[^ ]* \[/, "", 1, $0))
+  printf(", %s", content)
+  next
+}
+
+{
+  if (NR > 1) {
+    printf("].\n")
+  }
+  CURRENT = $1
+  content = gensub(/\]\.$/, "", 1, gensub(/^[^ ]* \[/, "", 1, $0))
+  printf("%s[%s", $1, content)
+}
+
+END {
+  if (NR > 0) {
+    printf("].\n")
+  }
+}
+'
+}
+
+TEMP=${TMP:-"/tmp"}/output_f$$
+
+(
+cat ${DIR}/arc_to_flr.pl
+cat
+) | \
+main_xsb | sort > "${TEMP}"
+
+post_process | flr_digest
+
+rm "${TEMP}"
+

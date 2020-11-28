@@ -1,0 +1,45 @@
+#!/bin/bash
+
+while test $# -gt 0 ; do
+  case "$1" in
+
+      --f*|-f*)       # flora2 analysis
+         ARC=1 ; shift ;;
+
+      --g*|-g*)       # graph analysis
+         ARC=1 ; GRAPH=1 ; shift ;;
+
+      *)              # show this help message
+         cat $0 | grep " \# " 1>&2
+         exit ;;
+
+  esac
+done
+
+######################
+# script starts here #
+######################
+
+DIR="$(dirname $0)"
+
+PATH=${DIR}:${PATH}
+
+(
+cat "${DIR}/ts2.pl"
+tree_process.lua
+) | \
+main_xsb | \
+if test "${ARC}"; then
+  run_FLOTTER | \
+  cnf_to_arc_prolog | \
+  main_xsb | \
+  arc_emb_clean | \
+  if test "${GRAPH}"; then
+    arc_to_graph
+  else
+    arc_to_flr
+  fi
+else
+  cat
+fi
+

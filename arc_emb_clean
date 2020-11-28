@@ -1,0 +1,22 @@
+#!/bin/bash
+
+TEMP1=${TMP:-"/tmp"}/output_1$$
+TEMP2=${TMP:-"/tmp"}/output_2$$
+
+cat > "${TEMP1}"
+
+cat "${TEMP1}" | \
+awk '
+/^arc\(fact[0-9]+,/ && /,emb\)\.$/ {  
+CONTENT = $0
+CONTENT = gensub(/^arc\(/, "", 1, CONTENT)
+CONTENT = gensub(/,emb\)\.$/, "", 1, CONTENT)
+split(CONTENT, parts, ",")
+printf("s@\\<%s\\>@%s@g\n", parts[1], parts[2])
+}
+' > "${TEMP2}"
+
+cat "${TEMP1}" | awk ' /^arc\(fact[0-9]+,/ && /,emb\)\.$/ { next } ; { print } ' | sed -f "${TEMP2}" 
+
+rm "${TEMP1}" "${TEMP2}"
+
